@@ -6,8 +6,15 @@
 
 #include "Model.h"
 #include "Shader.h"
+#include "Time.h"
 
 struct android_app;
+
+struct PositionAndTime {
+    constexpr PositionAndTime(const float x, const float y, const float t): pos { x, y }, time(t) {}
+    Vector2 pos;
+    float time;
+};
 
 class Renderer {
 public:
@@ -58,6 +65,15 @@ private:
      */
     void createModels();
 
+    /*!
+     * Pat functions.
+     */
+    void check_pats(float dt);
+    void spawn_pat(float x, float y);
+    void spawn_mini_pats(float x, float y);
+
+    Time time_;
+
     android_app *app_;
     EGLDisplay display_;
     EGLSurface surface_;
@@ -69,6 +85,16 @@ private:
 
     std::unique_ptr<Shader> shader_;
     std::vector<Model> models_;
+
+    std::shared_ptr<TextureAsset> regular_pat_texture_;
+    std::shared_ptr<TextureAsset> spring_pat_texture_;
+    std::shared_ptr<TextureAsset> background_texture_;
+
+    std::vector<PositionAndTime> regular_pats_;
+    std::vector<PositionAndTime> red_pats_;
+    std::vector<PositionAndTime> mini_pats_;
+    std::vector<PositionAndTime> spring_pats_;
+
 };
 
 #endif //ANDROIDGLINVESTIGATIONS_RENDERER_H

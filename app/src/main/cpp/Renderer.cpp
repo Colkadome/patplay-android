@@ -133,6 +133,8 @@ void Renderer::render() {
     // clear the color buffer
     glClear(GL_COLOR_BUFFER_BIT);
 
+    //
+
     // Render all the models. There's no depth testing in this sample so they're accepted in the
     // order provided. But the sample EGL setup requests a 24 bit depth buffer so you could
     // configure it at the end of initRenderer
@@ -145,6 +147,20 @@ void Renderer::render() {
     // Present the rendered image. This is an implicit glFlush.
     auto swapResult = eglSwapBuffers(display_, surface_);
     assert(swapResult == EGL_TRUE);
+}
+
+void Renderer::check_pats(float dt) {
+
+
+
+}
+
+void Renderer::spawn_pat(float x, float y) {
+
+}
+
+void Renderer::spawn_mini_pats(float x, float y) {
+
 }
 
 void Renderer::initRenderer() {
@@ -235,8 +251,17 @@ void Renderer::initRenderer() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    // Load textures.
+    auto assetManager = app_->activity->assetManager;
+    regular_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/pat.jpeg");
+    spring_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/springpat.jpeg");
+    background_texture_ = TextureAsset::loadAsset(assetManager, "jpg/background.jpeg");
+
     // get some demo models into memory
     createModels();
+
+    // Init time.
+    auto t = std::chrono::system_clock::now();
 }
 
 void Renderer::updateRenderArea() {
@@ -287,9 +312,15 @@ void Renderer::createModels() {
 
     // Create a model and put it in the back of the render list.
     models_.emplace_back(vertices, indices, spAndroidRobotTexture);
+
 }
 
 void Renderer::handleInput() {
+
+    // Check the pats.
+    float dt = time_.get_dt();
+    check_pats(dt);
+
     // handle all queued inputs
     auto *inputBuffer = android_app_swap_input_buffers(app_);
     if (!inputBuffer) {
@@ -302,23 +333,19 @@ void Renderer::handleInput() {
         auto &motionEvent = inputBuffer->motionEvents[i];
         auto action = motionEvent.action;
 
-        // Find the pointer index, mask and bitshift to turn it into a readable value.
-        auto pointerIndex = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK)
-                >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
-        aout << "Pointer(s): ";
-
-        // get the x and y position of this event if it is not ACTION_MOVE.
-        auto &pointer = motionEvent.pointers[pointerIndex];
-        auto x = GameActivityPointerAxes_getX(&pointer);
-        auto y = GameActivityPointerAxes_getY(&pointer);
-
         // determine the action type and process the event accordingly.
         switch (action & AMOTION_EVENT_ACTION_MASK) {
             case AMOTION_EVENT_ACTION_DOWN:
-            case AMOTION_EVENT_ACTION_POINTER_DOWN:
-                aout << "(" << pointer.id << ", " << x << ", " << y << ") "
-                     << "Pointer Down";
+            case AMOTION_EVENT_ACTION_POINTER_DOWN: {
+                // get the x and y position of this event if it is not ACTION_MOVE. (?)
+                auto pointerIndex = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK)
+                        >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+                auto &pointer = motionEvent.pointers[pointerIndex];
+                auto x = GameActivityPointerAxes_getX(&pointer);
+                auto y = GameActivityPointerAxes_getY(&pointer);
+                spawn_pat(x, y);
                 break;
+            }
 
             case AMOTION_EVENT_ACTION_CANCEL:
                 // treat the CANCEL as an UP event: doing nothing in the app, except
@@ -326,29 +353,20 @@ void Renderer::handleInput() {
                 // code pass through on purpose.
             case AMOTION_EVENT_ACTION_UP:
             case AMOTION_EVENT_ACTION_POINTER_UP:
-                aout << "(" << pointer.id << ", " << x << ", " << y << ") "
-                     << "Pointer Up";
                 break;
 
             case AMOTION_EVENT_ACTION_MOVE:
                 // There is no pointer index for ACTION_MOVE, only a snapshot of
                 // all active pointers; app needs to cache previous active pointers
-                // to figure out which ones are actually moved.
+                // to figure out which ones are actually moved. (TODO?)
                 for (auto index = 0; index < motionEvent.pointerCount; index++) {
-                    pointer = motionEvent.pointers[index];
-                    x = GameActivityPointerAxes_getX(&pointer);
-                    y = GameActivityPointerAxes_getY(&pointer);
-                    aout << "(" << pointer.id << ", " << x << ", " << y << ")";
-
-                    if (index != (motionEvent.pointerCount - 1)) aout << ",";
-                    aout << " ";
+                    auto pointer = motionEvent.pointers[index];
+                    auto x = GameActivityPointerAxes_getX(&pointer);
+                    auto y = GameActivityPointerAxes_getY(&pointer);
+                    spawn_pat(x, y);
                 }
-                aout << "Pointer Move";
                 break;
-            default:
-                aout << "Unknown MotionEvent Action: " << action;
         }
-        aout << std::endl;
     }
     // clear the motion input count in this buffer for main thread to re-use.
     android_app_clear_motion_events(inputBuffer);
@@ -375,4 +393,5 @@ void Renderer::handleInput() {
     }
     // clear the key input count too.
     android_app_clear_key_events(inputBuffer);
+
 }

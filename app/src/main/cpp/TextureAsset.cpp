@@ -14,7 +14,9 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
     // Make a decoder to turn it into a texture
     AImageDecoder *pAndroidDecoder = nullptr;
     auto result = AImageDecoder_createFromAAsset(pAndroidRobotPng, &pAndroidDecoder);
-    assert(result == ANDROID_IMAGE_DECODER_SUCCESS);
+    if (result != ANDROID_IMAGE_DECODER_SUCCESS) {
+        return std::shared_ptr<TextureAsset>(new TextureAsset(0));
+    }
 
     // make sure we get 8 bits per channel out. RGBA order.
     AImageDecoder_setAndroidBitmapFormat(pAndroidDecoder, ANDROID_BITMAP_FORMAT_RGBA_8888);
@@ -35,7 +37,15 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
             upAndroidImageData->data(),
             stride,
             upAndroidImageData->size());
-    assert(decodeResult == ANDROID_IMAGE_DECODER_SUCCESS);
+
+    // cleanup helpers
+    AImageDecoder_delete(pAndroidDecoder);
+    AAsset_close(pAndroidRobotPng);
+
+    // Check result.
+    if (decodeResult != ANDROID_IMAGE_DECODER_SUCCESS) {
+        return std::shared_ptr<TextureAsset>(new TextureAsset(0));
+    }
 
     // Get an opengl texture
     GLuint textureId;
@@ -64,10 +74,6 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
 
     // generate mip levels. Not really needed for 2D, but good to do
     glGenerateMipmap(GL_TEXTURE_2D);
-
-    // cleanup helpers
-    AImageDecoder_delete(pAndroidDecoder);
-    AAsset_close(pAndroidRobotPng);
 
     // Create a shared pointer so it can be cleaned up easily/automatically
     return std::shared_ptr<TextureAsset>(new TextureAsset(textureId));
