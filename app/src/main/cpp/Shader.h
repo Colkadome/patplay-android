@@ -16,23 +16,10 @@ class Model;
 class Shader {
 public:
     /*!
-     * Loads a shader given the full sourcecode and names for necessary attributes and uniforms to
-     * link to. Returns a valid shader on success or null on failure. Shader resources are
-     * automatically cleaned up on destruction.
-     *
-     * @param vertexSource The full source code for your vertex program
-     * @param fragmentSource The full source code of your fragment program
-     * @param positionAttributeName The name of the position attribute in your vertex program
-     * @param uvAttributeName The name of the uv coordinate attribute in your vertex program
-     * @param projectionMatrixUniformName The name of your model/view/projection matrix uniform
+     * Loads a shader.
      * @return a valid Shader on success, otherwise null.
      */
-    static Shader *loadShader(
-            const std::string &vertexSource,
-            const std::string &fragmentSource,
-            const std::string &positionAttributeName,
-            const std::string &uvAttributeName,
-            const std::string &projectionMatrixUniformName);
+    static Shader *loadShader();
 
     inline ~Shader() {
         if (program_) {
@@ -52,16 +39,25 @@ public:
     void deactivate() const;
 
     /*!
-     * Renders a single model
-     * @param model a model to render
+     * Sets the current texture
      */
-    void drawModel(const Model &model) const;
+    void setTexture(const unsigned int tex) const;
+
+    /*!
+     * Renders a single shape
+     */
+    void drawShape(const float x, const float y, const float w, const float h) const;
 
     /*!
      * Sets the model/view/projection matrix in the shader.
      * @param projectionMatrix sixteen floats, column major, defining an OpenGL projection matrix.
      */
     void setProjectionMatrix(float *projectionMatrix) const;
+
+    /*!
+     * Sets the current color.
+     */
+    void setColor(float r, float g, float b, float a) const;
 
 private:
     /*!
@@ -83,16 +79,22 @@ private:
             GLuint program,
             GLint position,
             GLint uv,
-            GLint projectionMatrix)
+            GLint posSize,
+            GLint projectionMatrix,
+            GLint color)
             : program_(program),
               position_(position),
+              posSize_(posSize),
               uv_(uv),
-              projectionMatrix_(projectionMatrix) {}
+              projectionMatrix_(projectionMatrix),
+              color_(color) {}
 
     GLuint program_;
     GLint position_;
     GLint uv_;
+    GLint posSize_;
     GLint projectionMatrix_;
+    GLint color_;
 };
 
 #endif //ANDROIDGLINVESTIGATIONS_SHADER_H

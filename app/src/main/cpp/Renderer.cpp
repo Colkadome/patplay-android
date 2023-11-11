@@ -33,39 +33,6 @@ for (auto& extension: extensionList) {\
 aout << std::endl;\
 }
 
-//! Color for cornflower blue. Can be sent directly to glClearColor
-#define CORNFLOWER_BLUE 100 / 255.f, 149 / 255.f, 237 / 255.f, 1
-
-// Vertex shader, you'd typically load this from assets
-static const char *vertex = R"vertex(#version 300 es
-in vec3 inPosition;
-in vec2 inUV;
-
-out vec2 fragUV;
-
-uniform mat4 uProjection;
-
-void main() {
-    fragUV = inUV;
-    gl_Position = uProjection * vec4(inPosition, 1.0);
-}
-)vertex";
-
-// Fragment shader, you'd typically load this from assets
-static const char *fragment = R"fragment(#version 300 es
-precision mediump float;
-
-in vec2 fragUV;
-
-uniform sampler2D uTexture;
-
-out vec4 outColor;
-
-void main() {
-    outColor = texture(uTexture, fragUV);
-}
-)fragment";
-
 /*!
  * Half the height of the projection matrix. This gives you a renderable area of height 4 ranging
  * from -2 to 2
@@ -109,39 +76,44 @@ void Renderer::render() {
     // When the renderable area changes, the projection matrix has to also be updated. This is true
     // even if you change from the sample orthographic projection matrix as your aspect ratio has
     // likely changed.
+    auto w = (float) width_;
+    auto h = (float) height_;
     if (shaderNeedsNewProjectionMatrix_) {
-        // a placeholder projection matrix allocated on the stack. Column-major memory layout
         float projectionMatrix[16] = {0};
-
-        // build an orthographic projection matrix for 2d rendering
-        Utility::buildOrthographicMatrix(
-                projectionMatrix,
-                kProjectionHalfHeight,
-                float(width_) / height_,
-                kProjectionNearPlane,
-                kProjectionFarPlane);
-
-        // send the matrix to the shader
-        // Note: the shader must be active for this to work. Since we only have one shader for this
-        // demo, we can assume that it's active.
+        Utility::buildOrthographicMatrix(projectionMatrix, w, h);
         shader_->setProjectionMatrix(projectionMatrix);
-
-        // make sure the matrix isn't generated every frame
         shaderNeedsNewProjectionMatrix_ = false;
     }
 
     // clear the color buffer
     glClear(GL_COLOR_BUFFER_BIT);
 
-    //
+    // Draw the background.
+    shader_->setColor(1, 1, 1, 1);
+    shader_->setTexture(background_texture_->getTextureID());
+    shader_->drawShape(w / 2, h / 2, w, h);
 
-    // Render all the models. There's no depth testing in this sample so they're accepted in the
-    // order provided. But the sample EGL setup requests a 24 bit depth buffer so you could
-    // configure it at the end of initRenderer
-    if (!models_.empty()) {
-        for (const auto &model: models_) {
-            shader_->drawModel(model);
+    // Render the regular pats.
+    if (!regular_pats_.empty() || !red_pats_.empty() || !mini_pats_.empty()) {
+        shader_->setTexture(regular_pat_texture_->getTextureID());
+    }
+    for (auto posTime : regular_pats_) {
+        shader_->drawShape(posTime.pos.x, posTime.pos.y, 32, 32);
+    }
+    for (auto posTime : mini_pats_) {
+        shader_->drawShape(posTime.pos.x, posTime.pos.y, 16, 16);
+    }
+    if (!red_pats_.empty()) {
+        shader_->setColor(1, 0, 0, 1);
+        for (auto posTime : red_pats_) {
+            shader_->drawShape(posTime.pos.x, posTime.pos.y, 64, 64);
         }
+    }
+
+    // Render the spring pats.
+    if (!spring_pats_.empty()) {
+        shader_->setColor(1, 1, 0, 1);
+        shader_->setTexture(spring_pat_texture_->getTextureID());
     }
 
     // Present the rendered image. This is an implicit glFlush.
@@ -149,22 +121,25 @@ void Renderer::render() {
     assert(swapResult == EGL_TRUE);
 }
 
-void Renderer::check_pats(float dt) {
+void Renderer::update() {
 
-
+    float dt = time_.get_dt();
 
 }
 
 void Renderer::spawn_pat(float x, float y) {
-
+    regular_pats_.emplace_back(x,  y, 0, 0);
 }
 
 void Renderer::spawn_mini_pats(float x, float y) {
-
+    for (int i = 0; i < 10; i++) {
+        regular_pats_.emplace_back(x, y, 0, 0);
+    }
 }
 
 void Renderer::initRenderer() {
-    // Choose your render attributes
+
+    // Choose your render attributes.
     constexpr EGLint attribs[] = {
             EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
             EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
@@ -236,18 +211,14 @@ void Renderer::initRenderer() {
     PRINT_GL_STRING(GL_VERSION);
     PRINT_GL_STRING_AS_LIST(GL_EXTENSIONS);
 
-    shader_ = std::unique_ptr<Shader>(
-            Shader::loadShader(vertex, fragment, "inPosition", "inUV", "uProjection"));
+    shader_ = std::unique_ptr<Shader>(Shader::loadShader());
     assert(shader_);
 
     // Note: there's only one shader in this demo, so I'll activate it here. For a more complex game
     // you'll want to track the active shader and activate/deactivate it as necessary
     shader_->activate();
 
-    // setup any other gl related global states
-    glClearColor(CORNFLOWER_BLUE);
-
-    // enable alpha globally for now, you probably don't want to do this in a game
+    glClearColor(0, 0, 0, 1);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -257,75 +228,38 @@ void Renderer::initRenderer() {
     spring_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/springpat.jpeg");
     background_texture_ = TextureAsset::loadAsset(assetManager, "jpg/background.jpeg");
 
-    // get some demo models into memory
-    createModels();
-
-    // Init time.
-    auto t = std::chrono::system_clock::now();
 }
 
 void Renderer::updateRenderArea() {
-    EGLint width;
-    eglQuerySurface(display_, surface_, EGL_WIDTH, &width);
 
-    EGLint height;
+    EGLint width, height;
+    eglQuerySurface(display_, surface_, EGL_WIDTH, &width);
     eglQuerySurface(display_, surface_, EGL_HEIGHT, &height);
 
     if (width != width_ || height != height_) {
         width_ = width;
         height_ = height;
         glViewport(0, 0, width, height);
-
-        // make sure that we lazily recreate the projection matrix before we render
         shaderNeedsNewProjectionMatrix_ = true;
     }
+
 }
 
 /**
  * @brief Create any demo models we want for this demo.
  */
 void Renderer::createModels() {
-    /*
-     * This is a square:
-     * 0 --- 1
-     * | \   |
-     * |  \  |
-     * |   \ |
-     * 3 --- 2
-     */
-    std::vector<Vertex> vertices = {
-            Vertex(Vector3{1, 1, 0}, Vector2{0, 0}), // 0
-            Vertex(Vector3{-1, 1, 0}, Vector2{1, 0}), // 1
-            Vertex(Vector3{-1, -1, 0}, Vector2{1, 1}), // 2
-            Vertex(Vector3{1, -1, 0}, Vector2{0, 1}) // 3
-    };
-    std::vector<Index> indices = {
-            0, 1, 2, 0, 2, 3
-    };
 
-    // loads an image and assigns it to the square.
-    //
-    // Note: there is no texture management in this sample, so if you reuse an image be careful not
-    // to load it repeatedly. Since you get a shared_ptr you can safely reuse it in many models.
-    auto assetManager = app_->activity->assetManager;
-    auto spAndroidRobotTexture = TextureAsset::loadAsset(assetManager, "android_robot.png");
-
-    // Create a model and put it in the back of the render list.
-    models_.emplace_back(vertices, indices, spAndroidRobotTexture);
+    // empty.
 
 }
 
 void Renderer::handleInput() {
 
-    // Check the pats.
-    float dt = time_.get_dt();
-    check_pats(dt);
-
     // handle all queued inputs
     auto *inputBuffer = android_app_swap_input_buffers(app_);
     if (!inputBuffer) {
-        // no inputs yet.
-        return;
+        return;  // no inputs yet.
     }
 
     // handle motion events (motionEventsCounts can be 0).
@@ -343,7 +277,7 @@ void Renderer::handleInput() {
                 auto &pointer = motionEvent.pointers[pointerIndex];
                 auto x = GameActivityPointerAxes_getX(&pointer);
                 auto y = GameActivityPointerAxes_getY(&pointer);
-                spawn_pat(x, y);
+                spawn_pat(x, (float) height_ - y);
                 break;
             }
 
@@ -363,7 +297,7 @@ void Renderer::handleInput() {
                     auto pointer = motionEvent.pointers[index];
                     auto x = GameActivityPointerAxes_getX(&pointer);
                     auto y = GameActivityPointerAxes_getY(&pointer);
-                    spawn_pat(x, y);
+                    spawn_pat(x, (float) height_ - y);
                 }
                 break;
         }
@@ -372,25 +306,26 @@ void Renderer::handleInput() {
     android_app_clear_motion_events(inputBuffer);
 
     // handle input key events.
-    for (auto i = 0; i < inputBuffer->keyEventsCount; i++) {
-        auto &keyEvent = inputBuffer->keyEvents[i];
-        aout << "Key: " << keyEvent.keyCode <<" ";
-        switch (keyEvent.action) {
-            case AKEY_EVENT_ACTION_DOWN:
-                aout << "Key Down";
-                break;
-            case AKEY_EVENT_ACTION_UP:
-                aout << "Key Up";
-                break;
-            case AKEY_EVENT_ACTION_MULTIPLE:
-                // Deprecated since Android API level 29.
-                aout << "Multiple Key Actions";
-                break;
-            default:
-                aout << "Unknown KeyEvent Action: " << keyEvent.action;
-        }
-        aout << std::endl;
-    }
+//    for (auto i = 0; i < inputBuffer->keyEventsCount; i++) {
+//        auto &keyEvent = inputBuffer->keyEvents[i];
+//        aout << "Key: " << keyEvent.keyCode <<" ";
+//        switch (keyEvent.action) {
+//            case AKEY_EVENT_ACTION_DOWN:
+//                aout << "Key Down";
+//                break;
+//            case AKEY_EVENT_ACTION_UP:
+//                aout << "Key Up";
+//                break;
+//            case AKEY_EVENT_ACTION_MULTIPLE:
+//                // Deprecated since Android API level 29.
+//                aout << "Multiple Key Actions";
+//                break;
+//            default:
+//                aout << "Unknown KeyEvent Action: " << keyEvent.action;
+//        }
+//        aout << std::endl;
+//    }
+
     // clear the key input count too.
     android_app_clear_key_events(inputBuffer);
 

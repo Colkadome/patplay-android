@@ -23,10 +23,8 @@ public:
      */
     static float *buildOrthographicMatrix(
             float *outMatrix,
-            float halfHeight,
-            float aspect,
-            float near,
-            float far);
+            float width,
+            float height);
 
     static float *buildIdentityMatrix(float *outMatrix);
 };

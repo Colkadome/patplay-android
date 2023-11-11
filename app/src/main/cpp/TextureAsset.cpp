@@ -59,6 +59,16 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    // Make every white pixel transparent.
+    // This is a pat play thing.
+    auto size = upAndroidImageData->size();
+    auto data = upAndroidImageData->data();
+    for (auto i = 0; i < size; i += 4) {
+        if (data[i] == 0xff && data[i + 1] == 0xff && data[i + 2] == 0xff) {
+            data[i + 3] = 0;
+        }
+    }
+
     // Load the texture into VRAM
     glTexImage2D(
             GL_TEXTURE_2D, // target
@@ -69,7 +79,7 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
             0, // border (always 0)
             GL_RGBA, // format
             GL_UNSIGNED_BYTE, // type
-            upAndroidImageData->data() // Data to upload
+            data // Data to upload
     );
 
     // generate mip levels. Not really needed for 2D, but good to do

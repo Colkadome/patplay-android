@@ -13,7 +13,13 @@ using TimePoint = std::chrono::time_point<Clock, Seconds>;
 
 class Time {
 public:
+
     inline Time(): last_time_(Clock::now()) {}
+
+    /*!
+     * Gets the elapsed time since last call.
+     * @return elapsed time.
+     */
     float get_dt();
 
 private:

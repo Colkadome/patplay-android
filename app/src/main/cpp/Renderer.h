@@ -11,8 +11,9 @@
 struct android_app;
 
 struct PositionAndTime {
-    constexpr PositionAndTime(const float x, const float y, const float t): pos { x, y }, time(t) {}
+    constexpr PositionAndTime(const float x, const float y, const float vx, const float vy): pos { x, y }, vel { vx, vy }, time(0) {}
     Vector2 pos;
+    Vector2 vel;
     float time;
 };
 
@@ -42,6 +43,11 @@ public:
     void handleInput();
 
     /*!
+     * Runs updates.
+     */
+    void update();
+
+    /*!
      * Renders all the models in the renderer
      */
     void render();
@@ -68,7 +74,6 @@ private:
     /*!
      * Pat functions.
      */
-    void check_pats(float dt);
     void spawn_pat(float x, float y);
     void spawn_mini_pats(float x, float y);
 

@@ -4,13 +4,42 @@
 #include "Model.h"
 #include "Utility.h"
 
-Shader *Shader::loadShader(
-        const std::string &vertexSource,
-        const std::string &fragmentSource,
-        const std::string &positionAttributeName,
-        const std::string &uvAttributeName,
-        const std::string &projectionMatrixUniformName) {
+// Vertex shader.
+static const char *vertexSource = R"vertex(#version 300 es
+in vec2 inPosition;
+in vec2 inUV;
+
+out vec2 fragUV;
+
+uniform vec4 uPosSize;
+uniform mat4 uProjection;
+
+void main() {
+    fragUV = inUV;
+    gl_Position = uProjection * vec4((inPosition * uPosSize.zw) + uPosSize.xy, 0.0, 1.0);
+}
+)vertex";
+
+// Fragment shader.
+static const char *fragmentSource = R"fragment(#version 300 es
+precision mediump float;
+
+in vec2 fragUV;
+
+uniform sampler2D uTexture;
+uniform vec4 uColor;
+
+out vec4 outColor;
+
+void main() {
+    outColor = texture(uTexture, fragUV) * uColor;
+}
+)fragment";
+
+Shader *Shader::loadShader() {
     Shader *shader = nullptr;
+
+    // Load vertex shader.
 
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, vertexSource);
     if (!vertexShader) {
@@ -37,7 +66,7 @@ Shader *Shader::loadShader(
 
             // If we fail to link the shader program, log the result for debugging
             if (logLength) {
-                GLchar *log = new GLchar[logLength];
+                auto *log = new GLchar[logLength];
                 glGetProgramInfoLog(program, logLength, nullptr, log);
                 aout << "Failed to link program with:\n" << log << std::endl;
                 delete[] log;
@@ -45,24 +74,28 @@ Shader *Shader::loadShader(
 
             glDeleteProgram(program);
         } else {
+
             // Get the attribute and uniform locations by name. You may also choose to hardcode
             // indices with layout= in your shader, but it is not done in this sample
-            GLint positionAttribute = glGetAttribLocation(program, positionAttributeName.c_str());
-            GLint uvAttribute = glGetAttribLocation(program, uvAttributeName.c_str());
-            GLint projectionMatrixUniform = glGetUniformLocation(
-                    program,
-                    projectionMatrixUniformName.c_str());
+            GLint positionAttribute = glGetAttribLocation(program, "inPosition");
+            GLint uvAttribute = glGetAttribLocation(program, "inUV");
+            GLint posSizeUniform = glGetUniformLocation(program, "uPosSize");
+            GLint projectionMatrixUniform = glGetUniformLocation(program, "uProjection");
+            GLint colorUniform = glGetUniformLocation(program, "uColor");
 
             // Only create a new shader if all the attributes are found.
             if (positionAttribute != -1
                 && uvAttribute != -1
-                && projectionMatrixUniform != -1) {
+                && projectionMatrixUniform != -1
+                && colorUniform != -1) {
 
                 shader = new Shader(
                         program,
                         positionAttribute,
                         uvAttribute,
-                        projectionMatrixUniform);
+                        posSizeUniform,
+                        projectionMatrixUniform,
+                        colorUniform);
             } else {
                 glDeleteProgram(program);
             }
@@ -109,46 +142,58 @@ GLuint Shader::loadShader(GLenum shaderType, const std::string &shaderSource) {
 
 void Shader::activate() const {
     glUseProgram(program_);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+void Shader::setTexture(const unsigned int tex) const {
+    glBindTexture(GL_TEXTURE_2D, tex);
 }
 
 void Shader::deactivate() const {
     glUseProgram(0);
 }
 
-void Shader::drawModel(const Model &model) const {
-    // The position attribute is 3 floats
-    glVertexAttribPointer(
-            position_, // attrib
-            3, // elements
-            GL_FLOAT, // of type float
-            GL_FALSE, // don't normalize
-            sizeof(Vertex), // stride is Vertex bytes
-            model.getVertexData() // pull from the start of the vertex data
-    );
+void Shader::drawShape(const float x, const float y, const float w, const float h) const {
+
+    // TODO: Try and use VBOs so we don't need to pass the data each time.
+    // https://www.khronos.org/opengl/wiki/Tutorial2:_VAOs,_VBOs,_Vertex_and_Fragment_Shaders_(C_/_SDL)
+
+    // Load vertex data for a quad.
+    float position_data[] = {
+            0.5, 0.5,
+            -0.5, 0.5,
+            -0.5, -0.5,
+            0.5, 0.5,
+            -0.5, -0.5,
+            0.5, -0.5
+    };
+    glVertexAttribPointer(position_,2,GL_FLOAT,GL_FALSE,0,position_data);
     glEnableVertexAttribArray(position_);
 
-    // The uv attribute is 2 floats
-    glVertexAttribPointer(
-            uv_, // attrib
-            2, // elements
-            GL_FLOAT, // of type float
-            GL_FALSE, // don't normalize
-            sizeof(Vertex), // stride is Vertex bytes
-            ((uint8_t *) model.getVertexData()) + sizeof(Vector3) // offset Vector3 from the start
-    );
+    // Load UV data for a quad.
+    float uv_data[] = {
+            1, 0,
+            0, 0,
+            0, 1,
+            1, 0,
+            0, 1,
+            1, 1
+    };
+    glVertexAttribPointer(uv_,2,GL_FLOAT,GL_FALSE,0,uv_data);
     glEnableVertexAttribArray(uv_);
 
-    // Setup the texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, model.getTexture().getTextureID());
-
-    // Draw as indexed triangles
-    glDrawElements(GL_TRIANGLES, model.getIndexCount(), GL_UNSIGNED_SHORT, model.getIndexData());
+    glUniform4f(posSize_, x, y, w, h);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glDisableVertexAttribArray(uv_);
     glDisableVertexAttribArray(position_);
+
 }
 
 void Shader::setProjectionMatrix(float *projectionMatrix) const {
     glUniformMatrix4fv(projectionMatrix_, 1, false, projectionMatrix);
+}
+
+void Shader::setColor(float r, float g, float b, float a) const {
+    glUniform4f(color_, r, g, b, a);
 }
