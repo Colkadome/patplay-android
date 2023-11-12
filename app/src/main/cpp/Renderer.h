@@ -7,10 +7,12 @@
 #include "Model.h"
 #include "Shader.h"
 #include "Time.h"
+#include "Sound.h"
 
 struct android_app;
 
 struct PositionAndTime {
+    constexpr PositionAndTime(): pos { 0, 0 }, vel { 0, 0 }, time(0) {}
     constexpr PositionAndTime(const float x, const float y, const float vx, const float vy): pos { x, y }, vel { vx, vy }, time(0) {}
     Vector2 pos;
     Vector2 vel;
@@ -31,6 +33,8 @@ public:
             height_(0),
             shaderNeedsNewProjectionMatrix_(true) {
         initRenderer();
+        time_.get_dt();
+        sound_.start();
     }
 
     virtual ~Renderer();
@@ -78,6 +82,7 @@ private:
     void spawn_mini_pats(float x, float y);
 
     Time time_;
+    Sound sound_;
 
     android_app *app_;
     EGLDisplay display_;

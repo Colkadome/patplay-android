@@ -14,15 +14,20 @@ add_library(patplay SHARED
         Shader.cpp
         TextureAsset.cpp
         Utility.cpp
-        Time.cpp)
+        Time.cpp
+        Sound.cpp)
 
 # Searches for a package provided by the game activity dependency
 find_package(game-activity REQUIRED CONFIG)
+find_package(oboe REQUIRED CONFIG)
 
 # Configure libraries CMake uses to link your target library.
 target_link_libraries(patplay
         # The game activity
         game-activity::game-activity
+
+        # Sound
+        oboe::oboe
 
         # EGL and other dependent libraries required for drawing
         # and interacting with Android system

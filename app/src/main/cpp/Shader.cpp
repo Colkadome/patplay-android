@@ -89,13 +89,52 @@ Shader *Shader::loadShader() {
                 && projectionMatrixUniform != -1
                 && colorUniform != -1) {
 
+                // Get VAO.
+                GLuint vao, vbo[2];
+                glGenVertexArrays(1, &vao);
+                glBindVertexArray(vao);
+                glGenBuffers(2, vbo);
+
+                // Gen first VBO.
+                GLfloat position_data[] = {
+                        0.5, 0.5,
+                        -0.5, 0.5,
+                        -0.5, -0.5,
+                        0.5, 0.5,
+                        -0.5, -0.5,
+                        0.5, -0.5
+                };
+                glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+                glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), position_data, GL_STATIC_DRAW);
+                glVertexAttribPointer(positionAttribute, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+                // Gen second VBO.
+                GLfloat uv_data[] = {
+                        1, 0,
+                        0, 0,
+                        0, 1,
+                        1, 0,
+                        0, 1,
+                        1, 1
+                };
+                glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+                glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), uv_data, GL_STATIC_DRAW);
+                glVertexAttribPointer(uvAttribute, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+                // Unbind stuff.
+                glBindVertexArray(0);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glDeleteBuffers(2, vbo);
+
+                // Construct shader.
                 shader = new Shader(
                         program,
                         positionAttribute,
                         uvAttribute,
                         posSizeUniform,
                         projectionMatrixUniform,
-                        colorUniform);
+                        colorUniform,
+                        vao);
             } else {
                 glDeleteProgram(program);
             }
@@ -142,7 +181,10 @@ GLuint Shader::loadShader(GLenum shaderType, const std::string &shaderSource) {
 
 void Shader::activate() const {
     glUseProgram(program_);
+    glBindVertexArray(vao_);
     glActiveTexture(GL_TEXTURE0);
+    glEnableVertexAttribArray(position_);
+    glEnableVertexAttribArray(uv_);
 }
 
 void Shader::setTexture(const unsigned int tex) const {
@@ -151,43 +193,15 @@ void Shader::setTexture(const unsigned int tex) const {
 
 void Shader::deactivate() const {
     glUseProgram(0);
+    glBindVertexArray(0);
+    glActiveTexture(0);
+    glDisableVertexAttribArray(position_);
+    glDisableVertexAttribArray(uv_);
 }
 
 void Shader::drawShape(const float x, const float y, const float w, const float h) const {
-
-    // TODO: Try and use VBOs so we don't need to pass the data each time.
-    // https://www.khronos.org/opengl/wiki/Tutorial2:_VAOs,_VBOs,_Vertex_and_Fragment_Shaders_(C_/_SDL)
-
-    // Load vertex data for a quad.
-    float position_data[] = {
-            0.5, 0.5,
-            -0.5, 0.5,
-            -0.5, -0.5,
-            0.5, 0.5,
-            -0.5, -0.5,
-            0.5, -0.5
-    };
-    glVertexAttribPointer(position_,2,GL_FLOAT,GL_FALSE,0,position_data);
-    glEnableVertexAttribArray(position_);
-
-    // Load UV data for a quad.
-    float uv_data[] = {
-            1, 0,
-            0, 0,
-            0, 1,
-            1, 0,
-            0, 1,
-            1, 1
-    };
-    glVertexAttribPointer(uv_,2,GL_FLOAT,GL_FALSE,0,uv_data);
-    glEnableVertexAttribArray(uv_);
-
     glUniform4f(posSize_, x, y, w, h);
     glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    glDisableVertexAttribArray(uv_);
-    glDisableVertexAttribArray(position_);
-
 }
 
 void Shader::setProjectionMatrix(float *projectionMatrix) const {

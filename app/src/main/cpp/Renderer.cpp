@@ -34,22 +34,24 @@ aout << std::endl;\
 }
 
 /*!
- * Half the height of the projection matrix. This gives you a renderable area of height 4 ranging
- * from -2 to 2
+ * Gets a random velocity.
  */
-static constexpr float kProjectionHalfHeight = 2.f;
-
-/*!
- * The near plane distance for the projection matrix. Since this is an orthographic projection
- * matrix, it's convenient to have negative values for sorting (and avoiding z-fighting at 0).
- */
-static constexpr float kProjectionNearPlane = -1.f;
-
-/*!
- * The far plane distance for the projection matrix. Since this is an orthographic porjection
- * matrix, it's convenient to have the far plane equidistant from 0 as the near plane.
- */
-static constexpr float kProjectionFarPlane = 1.f;
+const int RED_PAT = 2;
+const int SPRING_PAT = 1;
+const int REGULAR_PAT = 0;
+int rand_pat() {
+    int r = rand() % 100;
+    if (r == 0) {
+        return RED_PAT;
+    } else if (r == 1) {
+        return SPRING_PAT;
+    } else {
+        return REGULAR_PAT;
+    }
+}
+inline float rand_vel() {
+    return ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) * 2.0) - 1.0;
+}
 
 Renderer::~Renderer() {
     if (display_ != EGL_NO_DISPLAY) {
@@ -86,34 +88,39 @@ void Renderer::render() {
     }
 
     // clear the color buffer
-    glClear(GL_COLOR_BUFFER_BIT);
+    //glClear(GL_COLOR_BUFFER_BIT);
 
     // Draw the background.
+    auto max_dim = fmax(w, h);
     shader_->setColor(1, 1, 1, 1);
     shader_->setTexture(background_texture_->getTextureID());
-    shader_->drawShape(w / 2, h / 2, w, h);
+    shader_->drawShape(w / 2, h / 2, max_dim, max_dim);
 
     // Render the regular pats.
+    float scale = 48;
     if (!regular_pats_.empty() || !red_pats_.empty() || !mini_pats_.empty()) {
         shader_->setTexture(regular_pat_texture_->getTextureID());
     }
     for (auto posTime : regular_pats_) {
-        shader_->drawShape(posTime.pos.x, posTime.pos.y, 32, 32);
+        shader_->drawShape(posTime.pos.x, posTime.pos.y, scale * 2, scale * 2);
+    }
+    if (!red_pats_.empty() || !mini_pats_.empty()) {
+        shader_->setColor(1, 0, 0, 1);
     }
     for (auto posTime : mini_pats_) {
-        shader_->drawShape(posTime.pos.x, posTime.pos.y, 16, 16);
+        shader_->drawShape(posTime.pos.x, posTime.pos.y, scale, scale);
     }
-    if (!red_pats_.empty()) {
-        shader_->setColor(1, 0, 0, 1);
-        for (auto posTime : red_pats_) {
-            shader_->drawShape(posTime.pos.x, posTime.pos.y, 64, 64);
-        }
+    for (auto posTime : red_pats_) {
+        shader_->drawShape(posTime.pos.x, posTime.pos.y, scale * 4, scale * 4);
     }
 
     // Render the spring pats.
     if (!spring_pats_.empty()) {
-        shader_->setColor(1, 1, 0, 1);
+        shader_->setColor(1, 1, 0.5, 1);
         shader_->setTexture(spring_pat_texture_->getTextureID());
+        for (auto posTime : spring_pats_) {
+            shader_->drawShape(posTime.pos.x, posTime.pos.y, scale * 3, scale * 3);
+        }
     }
 
     // Present the rendered image. This is an implicit glFlush.
@@ -123,18 +130,120 @@ void Renderer::render() {
 
 void Renderer::update() {
 
+    auto w = (float) width_;
+    auto h = (float) height_;
     float dt = time_.get_dt();
+    float gravity = 2.0;
+    float baseSpeed = 1024.0;
+    float redSpeed = 128.0;
+    float springStrength = 2.0;
+    float maxVelocity = 64.0;
+
+    // Process regular pats.
+    auto last = regular_pats_.size();
+    for (auto i = 0; i < last; i++) {
+        while (last > i && regular_pats_[i].time > 2.0) {
+            last -= 1;
+            regular_pats_[i] = regular_pats_[last];
+        }
+        regular_pats_[i].time += dt;
+        regular_pats_[i].vel.y -= gravity * dt;
+        regular_pats_[i].pos.x += regular_pats_[i].vel.x * baseSpeed * dt;
+        regular_pats_[i].pos.y += regular_pats_[i].vel.y * baseSpeed * dt;
+    }
+    regular_pats_.resize(last);
+
+    // Process mini pats.
+    last = mini_pats_.size();
+    for (auto i = 0; i < last; i++) {
+        while (last > i && mini_pats_[i].time > 1.0) {
+            last -= 1;
+            mini_pats_[i] = mini_pats_[last];
+        }
+        mini_pats_[i].time += dt;
+        mini_pats_[i].vel.y -= gravity * dt;
+        mini_pats_[i].pos.x += mini_pats_[i].vel.x * baseSpeed * dt;
+        mini_pats_[i].pos.y += mini_pats_[i].vel.y * baseSpeed * dt;
+    }
+    mini_pats_.resize(last);
+
+    // Process red pats.
+    last = red_pats_.size();
+    for (auto i = 0; i < last; i++) {
+        while (last > i && red_pats_[i].time > 1.0) {
+            last -= 1;
+            spawn_mini_pats(red_pats_[i].pos.x, red_pats_[i].pos.y);
+            red_pats_[i] = red_pats_[last];
+        }
+        red_pats_[i].time += dt;
+        red_pats_[i].vel.y -= gravity * dt;
+        red_pats_[i].pos.x += red_pats_[i].vel.x * redSpeed * dt;
+        red_pats_[i].pos.y += red_pats_[i].vel.y * redSpeed * dt;
+    }
+    red_pats_.resize(last);
+
+    // Process spring pats.
+    last = spring_pats_.size();
+    for (auto i = 0; i < last; i++) {
+        while (last > i && spring_pats_[i].time > 4.0) {
+            last -= 1;
+            spring_pats_[i] = spring_pats_[last];
+        }
+        spring_pats_[i].time += dt;
+        spring_pats_[i].vel.y -= gravity * dt;
+        spring_pats_[i].pos.x += spring_pats_[i].vel.x * baseSpeed * dt;
+        spring_pats_[i].pos.y += spring_pats_[i].vel.y * baseSpeed * dt;
+
+        // Reverse velocities if the edge is reached.
+        bool hit_edge = false;
+        if (spring_pats_[i].pos.x < 0) {
+            spring_pats_[i].vel.x = fmin(spring_pats_[i].vel.x * -springStrength, maxVelocity);
+            spring_pats_[i].pos.x = 0;
+            hit_edge = true;
+        } else if (spring_pats_[i].pos.x > w) {
+            spring_pats_[i].vel.x = fmax(spring_pats_[i].vel.x * -springStrength, -maxVelocity);
+            spring_pats_[i].pos.x = w;
+            hit_edge = true;
+        }
+        if (spring_pats_[i].pos.y < 0) {
+            spring_pats_[i].vel.y = fmin(spring_pats_[i].vel.y * -springStrength, maxVelocity);
+            spring_pats_[i].pos.y = 0;
+            hit_edge = true;
+        } else if (spring_pats_[i].pos.y > h) {
+            spring_pats_[i].vel.y = fmax(spring_pats_[i].vel.y * -springStrength, -maxVelocity);
+            spring_pats_[i].pos.y = h;
+            hit_edge = true;
+        }
+        if (hit_edge) {
+            sound_.playSpringRebound();
+        }
+    }
+    spring_pats_.resize(last);
 
 }
 
 void Renderer::spawn_pat(float x, float y) {
-    regular_pats_.emplace_back(x,  y, 0, 0);
+    int pat = rand_pat();
+    if (pat == RED_PAT) {
+        red_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        sound_.playRedPat();
+    } else if (pat == SPRING_PAT) {
+        spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        sound_.playSpringPat();
+    } else {
+        regular_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        sound_.playRegularPat();
+    }
 }
 
 void Renderer::spawn_mini_pats(float x, float y) {
+    float speed = 4.0;
     for (int i = 0; i < 10; i++) {
-        regular_pats_.emplace_back(x, y, 0, 0);
+        mini_pats_.emplace_back(x, y, rand_vel() * speed, rand_vel() * speed);
     }
+    sound_.playExplosion();
 }
 
 void Renderer::initRenderer() {
@@ -224,9 +333,9 @@ void Renderer::initRenderer() {
 
     // Load textures.
     auto assetManager = app_->activity->assetManager;
-    regular_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/pat.jpeg");
-    spring_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/springpat.jpeg");
-    background_texture_ = TextureAsset::loadAsset(assetManager, "jpg/background.jpeg");
+    regular_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/pat.jpeg", true);
+    spring_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/springpat.jpeg", true);
+    background_texture_ = TextureAsset::loadAsset(assetManager, "jpg/background.jpeg", false);
 
 }
 

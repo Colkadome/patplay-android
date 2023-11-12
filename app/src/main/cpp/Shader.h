@@ -22,9 +22,14 @@ public:
     static Shader *loadShader();
 
     inline ~Shader() {
+        deactivate();  // We deactivate as there is only one shader.
         if (program_) {
             glDeleteProgram(program_);
             program_ = 0;
+        }
+        if (vao_) {
+            glDeleteVertexArrays(1, &vao_);
+            vao_ = 0;
         }
     }
 
@@ -81,13 +86,15 @@ private:
             GLint uv,
             GLint posSize,
             GLint projectionMatrix,
-            GLint color)
+            GLint color,
+            GLuint vao)
             : program_(program),
               position_(position),
               posSize_(posSize),
               uv_(uv),
               projectionMatrix_(projectionMatrix),
-              color_(color) {}
+              color_(color),
+              vao_(vao) {}
 
     GLuint program_;
     GLint position_;
@@ -95,6 +102,7 @@ private:
     GLint posSize_;
     GLint projectionMatrix_;
     GLint color_;
+    GLuint vao_;
 };
 
 #endif //ANDROIDGLINVESTIGATIONS_SHADER_H

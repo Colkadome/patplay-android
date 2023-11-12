@@ -4,7 +4,7 @@
 #include "Utility.h"
 
 std::shared_ptr<TextureAsset>
-TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPath) {
+TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPath, bool removeWhite) {
     // Get the image from asset manager
     auto pAndroidRobotPng = AAssetManager_open(
             assetManager,
@@ -32,11 +32,13 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
 
     // Get the bitmap data of the image
     auto upAndroidImageData = std::make_unique<std::vector<uint8_t>>(height * stride);
+    auto size = upAndroidImageData->size();
+    auto data = upAndroidImageData->data();
     auto decodeResult = AImageDecoder_decodeImage(
             pAndroidDecoder,
-            upAndroidImageData->data(),
+            data,
             stride,
-            upAndroidImageData->size());
+            size);
 
     // cleanup helpers
     AImageDecoder_delete(pAndroidDecoder);
@@ -56,16 +58,16 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // Make every white pixel transparent.
     // This is a pat play thing.
-    auto size = upAndroidImageData->size();
-    auto data = upAndroidImageData->data();
-    for (auto i = 0; i < size; i += 4) {
-        if (data[i] == 0xff && data[i + 1] == 0xff && data[i + 2] == 0xff) {
-            data[i + 3] = 0;
+    if (removeWhite) {
+        for (auto i = 0; i < size; i += 4) {
+            if (data[i] > 0xf0 && data[i + 1] > 0xf0 && data[i + 2] > 0xf0) {
+                data[i + 3] = 0;
+            }
         }
     }
 
@@ -83,7 +85,7 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
     );
 
     // generate mip levels. Not really needed for 2D, but good to do
-    glGenerateMipmap(GL_TEXTURE_2D);
+    // glGenerateMipmap(GL_TEXTURE_2D);
 
     // Create a shared pointer so it can be cleaned up easily/automatically
     return std::shared_ptr<TextureAsset>(new TextureAsset(textureId));
