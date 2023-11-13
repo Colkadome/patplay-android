@@ -33,8 +33,6 @@ public:
             height_(0),
             shaderNeedsNewProjectionMatrix_(true) {
         initRenderer();
-        time_.get_dt();
-        sound_.start();
     }
 
     virtual ~Renderer();

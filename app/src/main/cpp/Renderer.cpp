@@ -337,6 +337,12 @@ void Renderer::initRenderer() {
     spring_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/springpat.jpeg", true);
     background_texture_ = TextureAsset::loadAsset(assetManager, "jpg/background.jpeg", false);
 
+    // Init timer by jigging it.
+    time_.get_dt();
+
+    // Init sound.
+    sound_.startAsync(assetManager);
+
 }
 
 void Renderer::updateRenderArea() {
