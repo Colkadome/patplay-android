@@ -40,10 +40,10 @@ const int RED_PAT = 2;
 const int SPRING_PAT = 1;
 const int REGULAR_PAT = 0;
 int rand_pat() {
-    int r = rand() % 100;
-    if (r == 0) {
+    int r = rand() % 200;
+    if (r < 2) {
         return RED_PAT;
-    } else if (r == 1) {
+    } else if (r == 2) {
         return SPRING_PAT;
     } else {
         return REGULAR_PAT;
@@ -226,23 +226,28 @@ void Renderer::spawn_pat(float x, float y) {
     int pat = rand_pat();
     if (pat == RED_PAT) {
         red_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        pat_count_ += 1;
         sound_.playRedPat();
     } else if (pat == SPRING_PAT) {
         spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
         spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
         spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        pat_count_ += 3;
         sound_.playSpringPat();
     } else {
         regular_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
+        pat_count_ += 1;
         sound_.playRegularPat();
     }
 }
 
 void Renderer::spawn_mini_pats(float x, float y) {
     float speed = 4.0;
-    for (int i = 0; i < 10; i++) {
+    int count = 10;
+    for (auto i = 0; i < count; i++) {
         mini_pats_.emplace_back(x, y, rand_vel() * speed, rand_vel() * speed);
     }
+    pat_count_ += count;
     sound_.playExplosion();
 }
 
@@ -343,6 +348,9 @@ void Renderer::initRenderer() {
     // Init sound.
     sound_.startAsync(assetManager);
 
+    // Init save data.
+
+
 }
 
 void Renderer::updateRenderArea() {
@@ -387,34 +395,40 @@ void Renderer::handleInput() {
             case AMOTION_EVENT_ACTION_DOWN:
             case AMOTION_EVENT_ACTION_POINTER_DOWN: {
                 // get the x and y position of this event if it is not ACTION_MOVE. (?)
-                auto pointerIndex = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK)
-                        >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
+                auto pointerIndex = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
                 auto &pointer = motionEvent.pointers[pointerIndex];
                 auto x = GameActivityPointerAxes_getX(&pointer);
                 auto y = GameActivityPointerAxes_getY(&pointer);
+                pointer_positions_.resize(pointerIndex + 1);
+                pointer_positions_[pointerIndex] = { x, y };
                 spawn_pat(x, (float) height_ - y);
                 break;
             }
 
             case AMOTION_EVENT_ACTION_CANCEL:
-                // treat the CANCEL as an UP event: doing nothing in the app, except
-                // removing the pointer from the cache if pointers are locally saved.
-                // code pass through on purpose.
             case AMOTION_EVENT_ACTION_UP:
-            case AMOTION_EVENT_ACTION_POINTER_UP:
+            case AMOTION_EVENT_ACTION_POINTER_UP: {
+                // No erasing done. We just assume someone can't point more than 10 times.
                 break;
+            }
 
-            case AMOTION_EVENT_ACTION_MOVE:
+            case AMOTION_EVENT_ACTION_MOVE: {
                 // There is no pointer index for ACTION_MOVE, only a snapshot of
                 // all active pointers; app needs to cache previous active pointers
-                // to figure out which ones are actually moved. (TODO?)
-                for (auto index = 0; index < motionEvent.pointerCount; index++) {
+                // to figure out which ones are actually moved.
+                for (auto index = 0; index < motionEvent.pointerCount && index < pointer_positions_.size(); index++) {
                     auto pointer = motionEvent.pointers[index];
                     auto x = GameActivityPointerAxes_getX(&pointer);
                     auto y = GameActivityPointerAxes_getY(&pointer);
-                    spawn_pat(x, (float) height_ - y);
+                    auto x_old = pointer_positions_[index].first;
+                    auto y_old = pointer_positions_[index].second;
+                    if (x != x_old || y != y_old) {
+                        pointer_positions_[index] = { x, y };
+                        spawn_pat(x, (float) height_ - y);
+                    }
                 }
                 break;
+            }
         }
     }
     // clear the motion input count in this buffer for main thread to re-use.

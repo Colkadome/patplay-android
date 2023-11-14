@@ -82,6 +82,8 @@ private:
     Time time_;
     Sound sound_;
 
+    unsigned int pat_count_;
+
     android_app *app_;
     EGLDisplay display_;
     EGLSurface surface_;
@@ -102,6 +104,8 @@ private:
     std::vector<PositionAndTime> red_pats_;
     std::vector<PositionAndTime> mini_pats_;
     std::vector<PositionAndTime> spring_pats_;
+
+    std::vector<std::pair<float, float>> pointer_positions_;
 
 };
 
