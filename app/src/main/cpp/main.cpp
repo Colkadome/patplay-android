@@ -74,6 +74,7 @@ void android_main(struct android_app *pApp) {
             pRenderer->handleInput();
             pRenderer->update();
             pRenderer->render();
+            pRenderer->postRender();
         }
 
     } while (!pApp->destroyRequested);

@@ -8,6 +8,7 @@
 #include "Shader.h"
 #include "Time.h"
 #include "Sound.h"
+#include "Save.h"
 
 struct android_app;
 
@@ -31,7 +32,9 @@ public:
             context_(EGL_NO_CONTEXT),
             width_(0),
             height_(0),
-            shaderNeedsNewProjectionMatrix_(true) {
+            shaderNeedsNewProjectionMatrix_(true),
+            timeUntilSave_(0.0),
+            needsSave_(false) {
         initRenderer();
     }
 
@@ -53,6 +56,11 @@ public:
      * Renders all the models in the renderer
      */
     void render();
+
+    /*!
+     * Post-render step.
+     */
+    void postRender();
 
 private:
     /*!
@@ -78,11 +86,11 @@ private:
      */
     void spawn_pat(float x, float y);
     void spawn_mini_pats(float x, float y);
+    void increment_counter(int c);
 
     Time time_;
     Sound sound_;
-
-    unsigned int pat_count_;
+    Save save_;
 
     android_app *app_;
     EGLDisplay display_;
@@ -92,6 +100,8 @@ private:
     EGLint height_;
 
     bool shaderNeedsNewProjectionMatrix_;
+    float timeUntilSave_;
+    bool needsSave_;
 
     std::unique_ptr<Shader> shader_;
     std::vector<Model> models_;

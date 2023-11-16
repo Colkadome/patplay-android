@@ -15,7 +15,8 @@ add_library(patplay SHARED
         TextureAsset.cpp
         Utility.cpp
         Time.cpp
-        Sound.cpp)
+        Sound.cpp
+        Save.cpp)
 
 # Searches for a package provided by the game activity dependency
 find_package(game-activity REQUIRED CONFIG)

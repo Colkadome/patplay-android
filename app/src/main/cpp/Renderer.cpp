@@ -10,6 +10,7 @@
 #include "Shader.h"
 #include "Utility.h"
 #include "TextureAsset.h"
+#include "Save.h"
 
 //! executes glGetString and outputs the result to logcat
 #define PRINT_GL_STRING(s) {aout << #s": "<< glGetString(s) << std::endl;}
@@ -123,9 +124,22 @@ void Renderer::render() {
         }
     }
 
+    // Render the pat count.
+    int patCount = save_.getPatCount();
+    // TODO.
+
     // Present the rendered image. This is an implicit glFlush.
     auto swapResult = eglSwapBuffers(display_, surface_);
     assert(swapResult == EGL_TRUE);
+}
+
+void Renderer::postRender() {
+
+    if (needsSave_) {
+        save_.savePatCount(app_->activity->internalDataPath);
+        needsSave_ = false;
+    }
+
 }
 
 void Renderer::update() {
@@ -220,23 +234,41 @@ void Renderer::update() {
     }
     spring_pats_.resize(last);
 
+    // Decrement save timer.
+    if (timeUntilSave_ > 0.0) {
+        timeUntilSave_ -= dt;
+        if (timeUntilSave_ <= 0.0) {
+            needsSave_ = true;
+        }
+    }
+
+}
+
+void Renderer::increment_counter(int c) {
+
+    save_.incrementPatCount(c);
+
+    if (timeUntilSave_ <= 0.0) {
+        timeUntilSave_ = 1.0;
+    }
+
 }
 
 void Renderer::spawn_pat(float x, float y) {
     int pat = rand_pat();
     if (pat == RED_PAT) {
         red_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
-        pat_count_ += 1;
+        increment_counter(1);
         sound_.playRedPat();
     } else if (pat == SPRING_PAT) {
         spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
         spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
         spring_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
-        pat_count_ += 3;
+        increment_counter(3);
         sound_.playSpringPat();
     } else {
         regular_pats_.emplace_back(x,  y, rand_vel(), rand_vel());
-        pat_count_ += 1;
+        increment_counter(1);
         sound_.playRegularPat();
     }
 }
@@ -247,7 +279,7 @@ void Renderer::spawn_mini_pats(float x, float y) {
     for (auto i = 0; i < count; i++) {
         mini_pats_.emplace_back(x, y, rand_vel() * speed, rand_vel() * speed);
     }
-    pat_count_ += count;
+    increment_counter(count);
     sound_.playExplosion();
 }
 
@@ -348,8 +380,8 @@ void Renderer::initRenderer() {
     // Init sound.
     sound_.startAsync(assetManager);
 
-    // Init save data.
-
+    // Init save.
+    save_.init(app_->activity->internalDataPath);
 
 }
 
