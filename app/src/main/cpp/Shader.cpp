@@ -195,6 +195,7 @@ void Shader::deactivate() const {
     glUseProgram(0);
     glBindVertexArray(0);
     glActiveTexture(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
     glDisableVertexAttribArray(position_);
     glDisableVertexAttribArray(uv_);
 }

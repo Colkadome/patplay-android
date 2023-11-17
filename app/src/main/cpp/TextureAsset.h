@@ -16,7 +16,7 @@ public:
      * @return a shared pointer to a texture asset, resources will be reclaimed when it's cleaned up
      */
     static std::shared_ptr<TextureAsset>
-    loadAsset(AAssetManager *assetManager, const std::string &assetPath, bool removeWhite);
+    loadAsset(AAssetManager *assetManager, const std::string &assetPath, int removeWhiteOrBlack);
 
     ~TextureAsset();
 

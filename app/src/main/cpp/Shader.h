@@ -94,7 +94,8 @@ private:
               uv_(uv),
               projectionMatrix_(projectionMatrix),
               color_(color),
-              vao_(vao) {}
+              vao_(vao),
+              lastTex_(0) {}
 
     GLuint program_;
     GLint position_;
@@ -103,6 +104,7 @@ private:
     GLint projectionMatrix_;
     GLint color_;
     GLuint vao_;
+    GLuint lastTex_;
 };
 
 #endif //ANDROIDGLINVESTIGATIONS_SHADER_H

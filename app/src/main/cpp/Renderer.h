@@ -110,6 +110,17 @@ private:
     std::shared_ptr<TextureAsset> spring_pat_texture_;
     std::shared_ptr<TextureAsset> background_texture_;
 
+    std::shared_ptr<TextureAsset> zero_texture_;
+    std::shared_ptr<TextureAsset> one_texture_;
+    std::shared_ptr<TextureAsset> two_texture_;
+    std::shared_ptr<TextureAsset> three_texture_;
+    std::shared_ptr<TextureAsset> four_texture_;
+    std::shared_ptr<TextureAsset> five_texture_;
+    std::shared_ptr<TextureAsset> six_texture_;
+    std::shared_ptr<TextureAsset> seven_texture_;
+    std::shared_ptr<TextureAsset> eight_texture_;
+    std::shared_ptr<TextureAsset> nine_texture_;
+
     std::vector<PositionAndTime> regular_pats_;
     std::vector<PositionAndTime> red_pats_;
     std::vector<PositionAndTime> mini_pats_;

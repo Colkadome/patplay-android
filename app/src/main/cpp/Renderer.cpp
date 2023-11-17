@@ -68,6 +68,7 @@ Renderer::~Renderer() {
         eglTerminate(display_);
         display_ = EGL_NO_DISPLAY;
     }
+    // TODO: Delete textures?
 }
 
 void Renderer::render() {
@@ -92,6 +93,7 @@ void Renderer::render() {
     //glClear(GL_COLOR_BUFFER_BIT);
 
     // Draw the background.
+    bool setWhite = true;
     auto max_dim = fmax(w, h);
     shader_->setColor(1, 1, 1, 1);
     shader_->setTexture(background_texture_->getTextureID());
@@ -107,6 +109,7 @@ void Renderer::render() {
     }
     if (!red_pats_.empty() || !mini_pats_.empty()) {
         shader_->setColor(1, 0, 0, 1);
+        setWhite = false;
     }
     for (auto posTime : mini_pats_) {
         shader_->drawShape(posTime.pos.x, posTime.pos.y, scale, scale);
@@ -118,6 +121,7 @@ void Renderer::render() {
     // Render the spring pats.
     if (!spring_pats_.empty()) {
         shader_->setColor(1, 1, 0.5, 1);
+        setWhite = false;
         shader_->setTexture(spring_pat_texture_->getTextureID());
         for (auto posTime : spring_pats_) {
             shader_->drawShape(posTime.pos.x, posTime.pos.y, scale * 3, scale * 3);
@@ -125,8 +129,37 @@ void Renderer::render() {
     }
 
     // Render the pat count.
-    int patCount = save_.getPatCount();
-    // TODO.
+    // We want to minimize texture swapping, hence the weird for-loops.
+    std::string countStr = std::to_string(save_.getPatCount());
+    for (char n = '0'; n <= '9'; n++) {
+        bool changedTexture = false;
+        for (int i = 0; i < countStr.size(); i++) {
+            if (n == countStr[i]) {
+                if (!changedTexture) {
+                    changedTexture = true;
+                    int tex = 0;
+                    switch (n) {
+                        case '0': tex = zero_texture_->getTextureID(); break;
+                        case '1': tex = one_texture_->getTextureID(); break;
+                        case '2': tex = two_texture_->getTextureID(); break;
+                        case '3': tex = three_texture_->getTextureID(); break;
+                        case '4': tex = four_texture_->getTextureID(); break;
+                        case '5': tex = five_texture_->getTextureID(); break;
+                        case '6': tex = six_texture_->getTextureID(); break;
+                        case '7': tex = seven_texture_->getTextureID(); break;
+                        case '8': tex = eight_texture_->getTextureID(); break;
+                        case '9': tex = nine_texture_->getTextureID(); break;
+                    }
+                    shader_->setTexture(tex);
+                }
+                if (!setWhite) {
+                    setWhite = true;
+                    shader_->setColor(1, 1, 1, 1);
+                }
+                shader_->drawShape(32 + (i * 32), height_ - 32, 32, 32);
+            }
+        }
+    }
 
     // Present the rendered image. This is an implicit glFlush.
     auto swapResult = eglSwapBuffers(display_, surface_);
@@ -370,9 +403,19 @@ void Renderer::initRenderer() {
 
     // Load textures.
     auto assetManager = app_->activity->assetManager;
-    regular_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/pat.jpeg", true);
-    spring_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/springpat.jpeg", true);
-    background_texture_ = TextureAsset::loadAsset(assetManager, "jpg/background.jpeg", false);
+    regular_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/pat.jpeg", 1);
+    spring_pat_texture_ = TextureAsset::loadAsset(assetManager, "jpg/springpat.jpeg", 1);
+    background_texture_ = TextureAsset::loadAsset(assetManager, "jpg/background.jpeg", 0);
+    zero_texture_ = TextureAsset::loadAsset(assetManager, "png/zero.png", 2);
+    one_texture_ = TextureAsset::loadAsset(assetManager, "png/one.png", 2);
+    two_texture_ = TextureAsset::loadAsset(assetManager, "png/two.png", 2);
+    three_texture_ = TextureAsset::loadAsset(assetManager, "png/three.png", 2);
+    four_texture_ = TextureAsset::loadAsset(assetManager, "png/four.png", 2);
+    five_texture_ = TextureAsset::loadAsset(assetManager, "png/five.png", 2);
+    six_texture_ = TextureAsset::loadAsset(assetManager, "png/six.png", 2);
+    seven_texture_ = TextureAsset::loadAsset(assetManager, "png/seven.png", 2);
+    eight_texture_ = TextureAsset::loadAsset(assetManager, "png/eight.png", 2);
+    nine_texture_ = TextureAsset::loadAsset(assetManager, "png/nine.png", 2);
 
     // Init timer by jigging it.
     time_.get_dt();

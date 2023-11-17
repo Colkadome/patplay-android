@@ -4,7 +4,7 @@
 #include "Utility.h"
 
 std::shared_ptr<TextureAsset>
-TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPath, bool removeWhite) {
+TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPath, int removeWhiteOrBlack) {
     // Get the image from asset manager
     auto pAndroidRobotPng = AAssetManager_open(
             assetManager,
@@ -63,9 +63,20 @@ TextureAsset::loadAsset(AAssetManager *assetManager, const std::string &assetPat
 
     // Make every white pixel transparent.
     // This is a pat play thing.
-    if (removeWhite) {
+    if (removeWhiteOrBlack == 1) {
         for (auto i = 0; i < size; i += 4) {
             if (data[i] > 0xf0 && data[i + 1] > 0xf0 && data[i + 2] > 0xf0) {
+                data[i + 3] = 0;
+            }
+        }
+    } else if (removeWhiteOrBlack == 2) {
+        // Meant just for the font files. Invert and remove white. Lol.
+        for (auto i = 0; i < size; i += 4) {
+            if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 0) {
+                data[i] = 0xff;
+                data[i + 1] = 0xff;
+                data[i + 2] = 0xff;
+            } else {
                 data[i + 3] = 0;
             }
         }
