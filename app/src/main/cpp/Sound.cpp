@@ -52,7 +52,12 @@ void Sound::start() {
 
 void Sound::stop() {
 
-    closeStream();
+    if (mAudioStream) {
+        mAudioStream->stop();
+        mAudioStream->close();
+    }
+
+    mAudioStream = nullptr;
 
 }
 
@@ -76,10 +81,7 @@ bool Sound::openStream() {
         return false;
     }
 
-    return true;
-}
-
-bool Sound::closeStream() {
+    mAudioStream->setDelayBeforeCloseMillis(500);
 
     return true;
 }
@@ -134,6 +136,19 @@ void playSoundArray(float* outputBuffer, AudioFile<float>* audioFile, std::vecto
 
 oboe::DataCallbackResult Sound::onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) {
 
+    if (!oboeStream) {
+        return oboe::DataCallbackResult::Stop;
+    }
+
+    switch (oboeStream->getState()) {
+        case oboe::StreamState::Closed:
+        case oboe::StreamState::Closing:
+        case oboe::StreamState::Disconnected:
+        case oboe::StreamState::Stopped:
+        case oboe::StreamState::Stopping:
+            return oboe::DataCallbackResult::Stop;
+    }
+
     int numChannels = oboeStream->getChannelCount();
     int numSamples = numFrames * numChannels;
 
@@ -143,31 +158,31 @@ oboe::DataCallbackResult Sound::onAudioReady(oboe::AudioStream *oboeStream, void
 
     // For each sound, add the sound data to the stream.
     // Pretty dumb method but there aren't many sounds.
-    if (regularPatSound_) {
+    if (regularPatSound_ && !regularPatSoundPlays_.empty()) {
         playSoundArray(outputBuffer, regularPatSound_.get(), regularPatSoundPlays_, numChannels, numFrames);
     }
-    if (redPatSound_) {
+    if (redPatSound_ && !redPatSoundPlays_.empty()) {
         playSoundArray(outputBuffer, redPatSound_.get(), redPatSoundPlays_, numChannels, numFrames);
     }
-    if (explosionSound_) {
+    if (explosionSound_ && !explosionSoundPlays_.empty()) {
         playSoundArray(outputBuffer, explosionSound_.get(), explosionSoundPlays_, numChannels, numFrames);
     }
-    if (springSoundOne_) {
+    if (springSoundOne_ && !springSoundOnePlays_.empty()) {
         playSoundArray(outputBuffer, springSoundOne_.get(), springSoundOnePlays_, numChannels, numFrames);
     }
-    if (springSoundTwo_) {
+    if (springSoundTwo_ && !springSoundTwoPlays_.empty()) {
         playSoundArray(outputBuffer, springSoundTwo_.get(), springSoundTwoPlays_, numChannels, numFrames);
     }
-    if (springSoundThree_) {
+    if (springSoundThree_ && !springSoundThreePlays_.empty()) {
         playSoundArray(outputBuffer, springSoundThree_.get(), springSoundThreePlays_, numChannels, numFrames);
     }
-    if (springReboundSoundOne_) {
+    if (springReboundSoundOne_ && !springReboundSoundOnePlays_.empty()) {
         playSoundArray(outputBuffer, springReboundSoundOne_.get(), springReboundSoundOnePlays_, numChannels, numFrames);
     }
-    if (springReboundSoundTwo_) {
+    if (springReboundSoundTwo_ && !springReboundSoundTwoPlays_.empty()) {
         playSoundArray(outputBuffer, springReboundSoundTwo_.get(), springReboundSoundTwoPlays_, numChannels, numFrames);
     }
-    if (springReboundSoundThree_) {
+    if (springReboundSoundThree_ && !springReboundSoundThreePlays_.empty()) {
         playSoundArray(outputBuffer, springReboundSoundThree_.get(), springReboundSoundThreePlays_, numChannels, numFrames);
     }
 

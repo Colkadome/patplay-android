@@ -68,7 +68,6 @@ Renderer::~Renderer() {
         eglTerminate(display_);
         display_ = EGL_NO_DISPLAY;
     }
-    // TODO: Delete textures?
 }
 
 void Renderer::render() {

@@ -34,7 +34,6 @@ private:
 
     void start();
     bool openStream();
-    bool closeStream();
     bool loadSounds(AAssetManager *assetManager);
     oboe::DataCallbackResult onAudioReady(oboe::AudioStream *oboeStream, void *audioData, int32_t numFrames) override;
 
