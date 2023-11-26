@@ -41,7 +41,7 @@ const int RED_PAT = 2;
 const int SPRING_PAT = 1;
 const int REGULAR_PAT = 0;
 int rand_pat() {
-    int r = rand() % 200;
+    int r = rand() % 400;
     if (r < 2) {
         return RED_PAT;
     } else if (r == 2) {
